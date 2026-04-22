@@ -4,10 +4,6 @@ on:
   push:
     branches: [main]
 
-permissions:
-  id-token: write
-  contents: read
-
 jobs:
   deploy:
     name: Build and deploy
@@ -17,7 +13,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ── AWS credentials ────────────────────────────────────────────
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -25,12 +20,10 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:            ${{ secrets.AWS_REGION }}
 
-      # ── ECR login ─────────────────────────────────────────────────
       - name: Login to ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ── Backend: build + push ──────────────────────────────────────
       - name: Build and push backend image
         id: build-backend
         env:
@@ -45,22 +38,19 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPO:latest
           echo "image=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 
-      # ── ECS: render task definition with new image tag ─────────────
       - name: Render ECS task definition
-        id: render-task-def
         env:
-          APP_NAME:       ed-triage
-          ACCOUNT_ID:     ${{ secrets.AWS_ACCOUNT_ID }}
-          REGION:         ${{ secrets.AWS_REGION }}
-          ECR_REGISTRY:   ${{ secrets.ECR_REGISTRY }}
+          APP_NAME:          ed-triage
+          ACCOUNT_ID:        ${{ secrets.AWS_ACCOUNT_ID }}
+          REGION:            ${{ secrets.AWS_REGION }}
+          ECR_REGISTRY:      ${{ secrets.ECR_REGISTRY }}
           LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
-          IMAGE_TAG:      ${{ github.sha }}
+          IMAGE_TAG:         ${{ github.sha }}
         run: |
           envsubst < scripts/ecs-task-def.json.template \
             | jq --arg img "$ECR_REGISTRY/$APP_NAME-backend:$IMAGE_TAG" \
                  '.containerDefinitions[0].image = $img' \
             > /tmp/task-def.json
-          echo "task_def_file=/tmp/task-def.json" >> "$GITHUB_OUTPUT"
 
       - name: Register task definition
         id: register-task
@@ -71,7 +61,6 @@ jobs:
             --output text)
           echo "task_def_arn=$ARN" >> "$GITHUB_OUTPUT"
 
-      # ── ECS: force new deployment ──────────────────────────────────
       - name: Deploy to ECS
         run: |
           aws ecs update-service \
@@ -86,29 +75,23 @@ jobs:
             --services ${{ secrets.ECS_SERVICE }} \
             --region  ${{ secrets.AWS_REGION }}
 
-      # ── Frontend: build + sync to S3 ──────────────────────────────
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm install
 
       - name: Build frontend
         working-directory: frontend
-        # VITE_API_URL is intentionally empty -- the browser calls /api/* which
-        # CloudFront routes to the ALB.  No cross-origin requests, no CORS needed.
         run: npm run build
 
       - name: Sync frontend to S3
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET_FRONTEND }}
         run: |
-          # Long-lived cache for hashed assets, no-cache for index.html
           aws s3 sync frontend/dist/ s3://$S3_BUCKET/ \
             --delete \
             --exclude "index.html" \
