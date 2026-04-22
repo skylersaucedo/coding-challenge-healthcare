@@ -2,6 +2,16 @@
 
 > AI-powered emergency department triage: turns a 12-minute chart review into a 5-second decision.
 
+## Screenshots
+
+| Login | Patient Intake |
+|---|---|
+| ![Login](images/login.png) | ![Patient Intake](images/patient.png) |
+
+| Nurse Kanban Board | Admin Dashboard |
+|---|---|
+| ![Nurse Board](images/nurse.png) | ![Admin Dashboard](images/admin.png) |
+
 ## Features
 
 ### Patient Intake
