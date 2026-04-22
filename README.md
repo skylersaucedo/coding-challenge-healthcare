@@ -98,19 +98,23 @@ docker compose up --build
 
 ---
 
+## Live URL
+
+**https://dgrqdy8gm4vhn.cloudfront.net**
+
 ## AWS Architecture
 
 ```
 Browser
-  └── CloudFront
-        ├── /* ──────────── S3 (React SPA)
-        └── /api/* ──────── ALB → ECS Fargate (FastAPI)
-                                          └── RDS PostgreSQL
+  └── CloudFront (E1KJ7NUASQVQJ)
+        ├── /* ──────────── S3 ed-triage-frontend-362612348887 (React SPA)
+        └── /api/* ──────── ALB ed-triage-alb → ECS Fargate ed-triage-cluster
+                                                      └── RDS ed-triage-postgres (us-east-2)
 ```
 
-All routes are prefixed `/api` so CloudFront can split traffic between origins without CORS configuration.
+All routes are prefixed `/api` so CloudFront splits traffic between origins without CORS configuration.
 
-Secrets (API keys, DB connection string, JWT secret) are stored in AWS Secrets Manager and injected into the ECS task at runtime.
+Secrets (API keys, DB connection string, JWT secret) are stored in AWS Secrets Manager (`ed-triage/prod`) and injected into the ECS task at runtime.
 
 ---
 

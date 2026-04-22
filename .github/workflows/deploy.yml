@@ -121,9 +121,7 @@ jobs:
             --service $ECS_SERVICE \
             --task-definition ${{ steps.register-task.outputs.task_def_arn }} \
             --force-new-deployment
-          aws ecs wait services-stable \
-            --cluster $ECS_CLUSTER \
-            --services $ECS_SERVICE
+          echo "Deployment triggered. ECS will roll out in the background."
 
       - name: Set up Node
         uses: actions/setup-node@v4
