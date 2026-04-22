@@ -18,7 +18,7 @@ jobs:
         with:
           aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ${{ secrets.AWS_REGION }}
+          aws-region:            us-east-2
 
       - name: Login to ECR
         id: ecr-login
@@ -42,7 +42,7 @@ jobs:
         env:
           APP_NAME:          ed-triage
           ACCOUNT_ID:        ${{ secrets.AWS_ACCOUNT_ID }}
-          REGION:            ${{ secrets.AWS_REGION }}
+          REGION:            us-east-2
           ECR_REGISTRY:      ${{ secrets.ECR_REGISTRY }}
           LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
           IMAGE_TAG:         ${{ github.sha }}
@@ -68,12 +68,12 @@ jobs:
             --service  ${{ secrets.ECS_SERVICE }} \
             --task-definition ${{ steps.register-task.outputs.task_def_arn }} \
             --force-new-deployment \
-            --region   ${{ secrets.AWS_REGION }}
+            --region   us-east-2
 
           aws ecs wait services-stable \
             --cluster ${{ secrets.ECS_CLUSTER }} \
             --services ${{ secrets.ECS_SERVICE }} \
-            --region  ${{ secrets.AWS_REGION }}
+            --region  us-east-2
 
       - name: Set up Node
         uses: actions/setup-node@v4
