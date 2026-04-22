@@ -1,0 +1,4 @@
+# Keep shell scripts and JSON templates with LF on all platforms
+*.sh text eol=lf
+*.template text eol=lf
+*.json text eol=lf
