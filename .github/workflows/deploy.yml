@@ -51,6 +51,7 @@ jobs:
           export LANGFUSE_BASE_URL="${{ secrets.LANGFUSE_BASE_URL }}"
           export IMAGE_TAG="${{ github.sha }}"
           envsubst < scripts/ecs-task-def.json.template \
+            | tr -d '\r' \
             | jq --arg img "$ECR_REGISTRY/$BACKEND_REPO:${{ github.sha }}" \
                  '.containerDefinitions[0].image = $img' \
             > /tmp/task-def.json
