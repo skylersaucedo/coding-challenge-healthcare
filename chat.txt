@@ -1,0 +1,101 @@
+I am building this MVP for a client. See the screenshot.
+
+Provide a comprehensive markdown describing the product description, and how we'll tackle this. 
+
+I am envisioning a SaaS, where a patient, a nurse or hospital administrator can log in, and see the current status of within the ER. 
+
+For the nurse, the dashboard can be a Kan-ban style where each patient is in a 'stage'.. start with intake, then vitals, then doc-visit, then post-visit followup. 
+
+For the patient, we will have a simple intake questionnaire, where we collect information like full name, dob, appxox height and weight, list of medical conditions, any history of allergies, operations, procedures. Next of kin, have them sign waivers, insurance, all of the things necessary for the hospital to intake this patient. 
+
+For the administrator, let's allow them to see all doctors, nurses on staff and all the patients. 
+
+let's start with 20 patients in the 'intake' stage, with 10 in the vitals, 5 in doc-visit, and 4 in follow-up. 
+
+
+For the tech stack: I want to deploy locally frontend with a Docker image, backend will be FAST API with docker backend, use different ports for each. We may want to use a vector database, so let's consider Qdrant, maybe to upload and embed multimodal data, such as video, images, text.... 
+
+For frontend, use typescript with ShadeCN. The Kanban board needs to be interactive, so allow the user to move a patient from one column to the next.
+
+Once everything looks good, we will test on Docker for functionality. 
+
+I would like to host this prototype in AWS, use my current AWS account and name all resources with a tag "coding-challenge-med" .
+
+I will want to CI/CD this in the "main" branch in my GitHub repo, so keep this in mind, we will need to build the cdk diff and maybe test some of the backend points to ensure we're connecting the frontend to the backend... 
+
+
+------------
+
+We will want to use gen AI for these features. 
+
+Let's use Claude Sonnet 4.6 to leverage instances where gen AI can be used, for example, can we determine if a patient is OK,  or if their status is “Immediate / Monitor / Escalate or Redirect”.
+
+We will use Anthropic API directly, so create a .env where I can share my API key. 
+
+Provide a subdirectory called "prompts" where we will store all prompts when we make calls to claude. 
+
+
+-----
+
+Create a Claude.md with some rules... Do not use "em dashes" and provide a comprehensive markdown on major changes and updates.. Add these to a "docs" directory. 
+
+---
+
+I am seeing an error here when I try to invoke claude to make an AI-assessment of our patient... 
+
+Look into this, and fix it. 
+
+Also, let's include langfuse observability... I want to see all calls to the backend and calls to Anthropic as traces in my langfuse env...
+
+I will supply the langfuse API keys in the .env... I want to add decotrators to my functions, and I want full observability for this SaaS in langfuse. 
+
+--- 
+
+Looking this over, it looks like the patients have not been assessed in terms of level of care urgency.. 
+
+We are missing some information, we need: 
+
+When the patient is in intake
+
+1. Does this patient need immediate attention, or can they safely wait, or do they need immediate care? We need to color code each patient on severity, red being bad, green is blue, yellow is not so good...
+
+2. We need arrival times for all patients, we need to know how long they are waiting. 
+
+3. A triaged assessment of each patient’s urgency (who should be seen now, who can wait, and what
+information is missing)
+
+When patient is in Doc Visit
+
+4. Recommended next actions organized as “Immediate / Monitor / Escalate or Redirect”
+
+5. A brief explanation of why those actions are suggested, referencing relevant clinical signals, triage
+guidance, prior patterns, or contextual factors
+
+To Post-visit:
+
+6. A follow-up checklist (e.g., assign a bed, notify a clinician, request additional vitals, flag for
+reassessment, document handoff notes)
+
+---------
+
+Now, let's deploy to AWS via CI/CD... When I push new code to the repo, via main, i want to deploy this. 
+
+Assign the URL as a cloudfront URL, just a generic one. 
+
+I want to see the .sh script to make sure we're deploying everything correctly. 
+
+I also need you to tell me which .env secrets to add to GitHub. 
+
+Also, add our secrets to AWS SecretsManager, so that when we deploy our resources, everything will work correctly.
+
+
+
+
+---------- SINGLE SLIDE -----
+
+Dinesh is the stakeholder, why should he use this application, what pain points does it solve? Can we add all of the features in one slide? 
+
+Provide a quick 1-2 sentence description (elevator pitch) on what this app solves. 
+
+Include AI-features and how this will allow ERs and urgent care clinics to save time with better organization. 
+ 

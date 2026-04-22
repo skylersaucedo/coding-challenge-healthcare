@@ -1,0 +1,41 @@
+{
+  "family": "ed-triage-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::362612348887:role/ed-triage-ecs-execution-role",
+  "taskRoleArn": "arn:aws:iam::362612348887:role/ed-triage-ecs-task-role",
+  "containerDefinitions": [
+    {
+      "name": "ed-triage-backend",
+      "image": "362612348887.dkr.ecr.us-east-2.amazonaws.com/ed-triage-backend:latest",
+      "portMappings": [{"containerPort": 8000, "protocol": "tcp"}],
+      "environment": [
+        {"name": "ENVIRONMENT", "value": "production"},
+        {"name": "LANGFUSE_BASE_URL", "value": "https://us.cloud.langfuse.com"},
+        {"name": "LANGFUSE_HOST", "value": "https://us.cloud.langfuse.com"}
+      ],
+      "secrets": [
+        {"name": "ANTHROPIC_API_KEY",  "valueFrom": "arn:aws:secretsmanager:us-east-2:362612348887:secret:ed-triage/prod-XAgDKq:ANTHROPIC_API_KEY::"},
+        {"name": "DATABASE_URL",       "valueFrom": "arn:aws:secretsmanager:us-east-2:362612348887:secret:ed-triage/prod-XAgDKq:DATABASE_URL::"},
+        {"name": "SECRET_KEY",         "valueFrom": "arn:aws:secretsmanager:us-east-2:362612348887:secret:ed-triage/prod-XAgDKq:SECRET_KEY::"},
+        {"name": "LANGFUSE_PUBLIC_KEY","valueFrom": "arn:aws:secretsmanager:us-east-2:362612348887:secret:ed-triage/prod-XAgDKq:LANGFUSE_PUBLIC_KEY::"},
+        {"name": "LANGFUSE_SECRET_KEY","valueFrom": "arn:aws:secretsmanager:us-east-2:362612348887:secret:ed-triage/prod-XAgDKq:LANGFUSE_SECRET_KEY::"}
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ed-triage-backend",
+          "awslogs-region": "us-east-2",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"],
+        "interval": 30, "timeout": 5, "retries": 3, "startPeriod": 60
+      },
+      "essential": true
+    }
+  ]
+}
