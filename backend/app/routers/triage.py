@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import require_role
 from app.db.session import get_db
-from app.models.patient import Patient, PatientAssessment
+from app.models.patient import NurseNote, Patient, PatientAssessment, Vitals
 from app.services.triage import (
     DischargeSummary,
     TriageAssessment,
@@ -59,16 +59,50 @@ async def _load_latest_assessment(
     )
 
 
-def _patient_dict(patient: Patient) -> dict:
-    return {
+async def _build_patient_dict(patient: Patient, db: AsyncSession) -> dict:
+    base = {
         "id": str(patient.id),
         "first_name": patient.first_name,
         "last_name": patient.last_name,
         "date_of_birth": patient.date_of_birth,
         "gender": patient.gender,
         "chief_complaint": patient.chief_complaint,
+        "arrival_time": patient.created_at.isoformat(),
+        "current_stage": patient.stage,
         **(patient.intake_data or {}),
     }
+
+    vitals_row = await db.execute(
+        select(Vitals)
+        .where(Vitals.patient_id == patient.id)
+        .order_by(Vitals.recorded_at.desc())
+        .limit(1)
+    )
+    vitals = vitals_row.scalar_one_or_none()
+    if vitals:
+        base["vitals"] = {
+            "heart_rate": vitals.heart_rate,
+            "blood_pressure": f"{vitals.blood_pressure_systolic}/{vitals.blood_pressure_diastolic}"
+            if vitals.blood_pressure_systolic
+            else None,
+            "temperature_f": vitals.temperature,
+            "respiratory_rate": vitals.respiratory_rate,
+            "oxygen_saturation": vitals.oxygen_saturation,
+        }
+
+    notes_rows = await db.execute(
+        select(NurseNote.content, NurseNote.note_type, NurseNote.created_at)
+        .where(NurseNote.patient_id == patient.id)
+        .order_by(NurseNote.created_at.asc())
+    )
+    notes = notes_rows.all()
+    if notes:
+        base["nurse_notes"] = [
+            {"type": n.note_type, "content": n.content, "at": n.created_at.isoformat()}
+            for n in notes
+        ]
+
+    return base
 
 
 @router.post("/assess/{patient_id}", response_model=TriageAssessment)
@@ -78,7 +112,7 @@ async def assess(
     current_user=Depends(require_role("nurse", "admin")),
 ):
     patient = await _get_patient_or_404(patient_id, db)
-    assessment = await assess_patient_triage(_patient_dict(patient))
+    assessment = await assess_patient_triage(await _build_patient_dict(patient, db))
 
     db.add(
         PatientAssessment(
@@ -106,7 +140,7 @@ async def followup(
 ):
     patient = await _get_patient_or_404(patient_id, db)
     prior = await _load_latest_assessment(patient_id, db)
-    answer = await symptom_followup(_patient_dict(patient), body.nurse_question, prior)
+    answer = await symptom_followup(await _build_patient_dict(patient, db), body.nurse_question, prior)
     return {"answer": answer}
 
 
@@ -119,7 +153,7 @@ async def discharge(
 ):
     patient = await _get_patient_or_404(patient_id, db)
     prior = await _load_latest_assessment(patient_id, db)
-    return await generate_discharge_summary(_patient_dict(patient), body.visit_notes, prior)
+    return await generate_discharge_summary(await _build_patient_dict(patient, db), body.visit_notes, prior)
 
 
 @router.get("/assessments/{patient_id}", response_model=list[dict])
