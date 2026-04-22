@@ -191,17 +191,10 @@ jobs:
         run: npm run build
 
       - name: Sync frontend to S3
+        env:
+          BUCKET: ${{ secrets.S3_BUCKET_FRONTEND }}
+          CF_DIST: ${{ secrets.CLOUDFRONT_DIST_ID }}
         run: |
-          aws s3 sync frontend/dist/ s3://${{ secrets.S3_BUCKET_FRONTEND }}/ \
-            --delete \
-            --exclude "index.html" \
-            --cache-control "max-age=31536000,immutable"
-          aws s3 cp frontend/dist/index.html \
-            s3://${{ secrets.S3_BUCKET_FRONTEND }}/index.html \
-            --cache-control "no-cache,no-store,must-revalidate"
-
-      - name: Invalidate CloudFront cache
-        run: |
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DIST_ID }} \
-            --paths "/*"
+          aws s3 sync frontend/dist/ "s3://${BUCKET}/" --delete --exclude "index.html" --cache-control "max-age=31536000,immutable"
+          aws s3 cp frontend/dist/index.html "s3://${BUCKET}/index.html" --cache-control "no-cache,no-store,must-revalidate"
+          aws cloudfront create-invalidation --distribution-id "$CF_DIST" --paths "/*"
