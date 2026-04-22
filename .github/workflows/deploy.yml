@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
 
+env:
+  AWS_REGION:    us-east-2
+  ECR_REGISTRY:  ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-2.amazonaws.com
+  BACKEND_REPO:  ed-triage-backend
+
 jobs:
   deploy:
     name: Build and deploy
@@ -21,34 +26,30 @@ jobs:
           aws-region:            us-east-2
 
       - name: Login to ECR
-        id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Create ECR repository if missing
+        run: |
+          aws ecr describe-repositories --repository-names $BACKEND_REPO --region $AWS_REGION 2>/dev/null || \
+          aws ecr create-repository --repository-name $BACKEND_REPO --region $AWS_REGION
 
       - name: Build and push backend image
         id: build-backend
-        env:
-          ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
-          ECR_REPO:     ${{ secrets.ECR_REPO_BACKEND }}
-          IMAGE_TAG:    ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG \
-                       -t $ECR_REGISTRY/$ECR_REPO:latest \
-                       ./backend
-          docker push $ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG
-          docker push $ECR_REGISTRY/$ECR_REPO:latest
-          echo "image=$ECR_REGISTRY/$ECR_REPO:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          IMAGE=$ECR_REGISTRY/$BACKEND_REPO:${{ github.sha }}
+          docker build -t $IMAGE -t $ECR_REGISTRY/$BACKEND_REPO:latest ./backend
+          docker push $IMAGE
+          docker push $ECR_REGISTRY/$BACKEND_REPO:latest
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Render ECS task definition
-        env:
-          APP_NAME:          ed-triage
-          ACCOUNT_ID:        ${{ secrets.AWS_ACCOUNT_ID }}
-          REGION:            us-east-2
-          ECR_REGISTRY:      ${{ secrets.ECR_REGISTRY }}
-          LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
-          IMAGE_TAG:         ${{ github.sha }}
         run: |
+          export ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}"
+          export REGION="$AWS_REGION"
+          export LANGFUSE_BASE_URL="${{ secrets.LANGFUSE_BASE_URL }}"
+          export IMAGE_TAG="${{ github.sha }}"
           envsubst < scripts/ecs-task-def.json.template \
-            | jq --arg img "$ECR_REGISTRY/$APP_NAME-backend:$IMAGE_TAG" \
+            | jq --arg img "$ECR_REGISTRY/$BACKEND_REPO:${{ github.sha }}" \
                  '.containerDefinitions[0].image = $img' \
             > /tmp/task-def.json
 
@@ -68,12 +69,11 @@ jobs:
             --service  ${{ secrets.ECS_SERVICE }} \
             --task-definition ${{ steps.register-task.outputs.task_def_arn }} \
             --force-new-deployment \
-            --region   us-east-2
-
+            --region $AWS_REGION
           aws ecs wait services-stable \
             --cluster ${{ secrets.ECS_CLUSTER }} \
             --services ${{ secrets.ECS_SERVICE }} \
-            --region  us-east-2
+            --region $AWS_REGION
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -89,20 +89,17 @@ jobs:
         run: npm run build
 
       - name: Sync frontend to S3
-        env:
-          S3_BUCKET: ${{ secrets.S3_BUCKET_FRONTEND }}
         run: |
-          aws s3 sync frontend/dist/ s3://$S3_BUCKET/ \
+          aws s3 sync frontend/dist/ s3://${{ secrets.S3_BUCKET_FRONTEND }}/ \
             --delete \
             --exclude "index.html" \
             --cache-control "max-age=31536000,immutable"
-          aws s3 cp frontend/dist/index.html s3://$S3_BUCKET/index.html \
+          aws s3 cp frontend/dist/index.html \
+            s3://${{ secrets.S3_BUCKET_FRONTEND }}/index.html \
             --cache-control "no-cache,no-store,must-revalidate"
 
       - name: Invalidate CloudFront cache
-        env:
-          CF_DIST_ID: ${{ secrets.CLOUDFRONT_DIST_ID }}
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id $CF_DIST_ID \
+            --distribution-id ${{ secrets.CLOUDFRONT_DIST_ID }} \
             --paths "/*"
