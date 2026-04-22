@@ -6,6 +6,7 @@ on:
 
 env:
   AWS_REGION:   us-east-2
+  APP_NAME:     ed-triage
   ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-2.amazonaws.com
   BACKEND_REPO: ed-triage-backend
   ECS_CLUSTER:  ed-triage-cluster
@@ -44,6 +45,7 @@ jobs:
 
       - name: Render ECS task definition
         run: |
+          export APP_NAME="$APP_NAME"
           export ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}"
           export REGION="$AWS_REGION"
           export LANGFUSE_BASE_URL="${{ secrets.LANGFUSE_BASE_URL }}"
