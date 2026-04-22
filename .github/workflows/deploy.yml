@@ -64,6 +64,9 @@ jobs:
 
       - name: Bootstrap ECS cluster and service if missing
         run: |
+          # Ensure ECS service-linked role exists (one-time per account)
+          aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 2>/dev/null || true
+
           # Create cluster if it doesn't exist
           aws ecs describe-clusters --clusters $ECS_CLUSTER \
             --query 'clusters[?status==`ACTIVE`].clusterName' \

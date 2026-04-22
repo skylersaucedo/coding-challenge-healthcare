@@ -273,6 +273,9 @@ docker push "${ECR_REGISTRY}/${ECR_REPO_BACKEND}:latest"
 # ============================================================
 # 9. ECS cluster + task definition + service
 # ============================================================
+log "Ensuring ECS service-linked role exists..."
+aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com 2>/dev/null || true
+
 log "Creating ECS cluster..."
 aws ecs create-cluster \
   --cluster-name "${APP_NAME}-cluster" \
