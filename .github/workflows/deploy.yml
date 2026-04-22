@@ -44,17 +44,68 @@ jobs:
           docker push $ECR_REGISTRY/$BACKEND_REPO:latest
 
       - name: Render ECS task definition
+        env:
+          ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+          LANGFUSE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
         run: |
-          export APP_NAME="$APP_NAME"
-          export ACCOUNT_ID="${{ secrets.AWS_ACCOUNT_ID }}"
-          export REGION="$AWS_REGION"
-          export LANGFUSE_BASE_URL="${{ secrets.LANGFUSE_BASE_URL }}"
-          export IMAGE_TAG="${{ github.sha }}"
-          envsubst < scripts/ecs-task-def.json.template \
-            | tr -d '\r' \
-            | jq --arg img "$ECR_REGISTRY/$BACKEND_REPO:${{ github.sha }}" \
-                 '.containerDefinitions[0].image = $img' \
-            > /tmp/task-def.json
+          SECRET_ARN="arn:aws:secretsmanager:$AWS_REGION:$ACCOUNT_ID:secret:$APP_NAME/prod"
+          IMAGE="$ECR_REGISTRY/$BACKEND_REPO:${{ github.sha }}"
+          jq -n \
+            --arg image    "$IMAGE" \
+            --arg family   "$APP_NAME-backend" \
+            --arg execRole "arn:aws:iam::$ACCOUNT_ID:role/$APP_NAME-ecs-execution-role" \
+            --arg taskRole "arn:aws:iam::$ACCOUNT_ID:role/$APP_NAME-ecs-task-role" \
+            --arg region   "$AWS_REGION" \
+            --arg logGroup "/ecs/$APP_NAME-backend" \
+            --arg lf_url   "$LANGFUSE_URL" \
+            --arg sec_anthropic "$SECRET_ARN:ANTHROPIC_API_KEY::" \
+            --arg sec_db       "$SECRET_ARN:DATABASE_URL::" \
+            --arg sec_key      "$SECRET_ARN:SECRET_KEY::" \
+            --arg sec_lf_pub   "$SECRET_ARN:LANGFUSE_PUBLIC_KEY::" \
+            --arg sec_lf_sec   "$SECRET_ARN:LANGFUSE_SECRET_KEY::" \
+            '{
+              family: $family,
+              networkMode: "awsvpc",
+              requiresCompatibilities: ["FARGATE"],
+              cpu: "512",
+              memory: "1024",
+              executionRoleArn: $execRole,
+              taskRoleArn: $taskRole,
+              containerDefinitions: [{
+                name: ($family),
+                image: $image,
+                essential: true,
+                portMappings: [{ containerPort: 8000, protocol: "tcp" }],
+                environment: [
+                  { name: "ENVIRONMENT",      value: "production" },
+                  { name: "LANGFUSE_BASE_URL", value: $lf_url },
+                  { name: "LANGFUSE_HOST",     value: $lf_url }
+                ],
+                secrets: [
+                  { name: "ANTHROPIC_API_KEY",  valueFrom: $sec_anthropic },
+                  { name: "DATABASE_URL",        valueFrom: $sec_db },
+                  { name: "SECRET_KEY",          valueFrom: $sec_key },
+                  { name: "LANGFUSE_PUBLIC_KEY", valueFrom: $sec_lf_pub },
+                  { name: "LANGFUSE_SECRET_KEY", valueFrom: $sec_lf_sec }
+                ],
+                logConfiguration: {
+                  logDriver: "awslogs",
+                  options: {
+                    "awslogs-group":         $logGroup,
+                    "awslogs-region":        $region,
+                    "awslogs-stream-prefix": "ecs"
+                  }
+                },
+                healthCheck: {
+                  command:     ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"],
+                  interval:    30,
+                  timeout:     5,
+                  retries:     3,
+                  startPeriod: 60
+                }
+              }]
+            }' > /tmp/task-def.json
+          echo "Task def rendered: $(wc -c < /tmp/task-def.json) bytes"
 
       - name: Register task definition
         id: register-task
