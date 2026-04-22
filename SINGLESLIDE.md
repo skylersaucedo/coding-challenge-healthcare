@@ -1,0 +1,1 @@
+ED Triage Support turns a 12-minute manual chart review into a 5-second AI decision — instantly classifying every patient by urgency, surfacing red flags, and telling your nurses exactly who to see next, so critical patients stop waiting and clinicians stop guessing.
